@@ -10,13 +10,15 @@
 
 ```
 anno_content_{project_id}:
-  anno_id       UUID PK
+  anno_id         UUID PK
   ... 由 anno_type.fields 动态生成 ...
-  final_label   string | null        # 最终标签（任务全部完成后写入）
-  label_status  int  DEFAULT 0       # 0=待标注  1=标注中  2=已完成
+  final_label     string | null        # 最终标签（任务全部完成后写入）
+  label_status    int  DEFAULT 0       # 0=待标注  1=标注中  2=已完成
+  labeled_round   int | null           # 在第几轮被标注完成
+  labeled_at      timestamp | null     # 标注完成时间
 ```
 
-导入后只读，只有 `final_label` 和 `label_status` 两列在标注过程中会变化。
+导入后只读，只有 `final_label`、`label_status`、`labeled_round`、`labeled_at` 在标注过程中会变化。
 
 ### anno_task_{项目id} — 任务表（争夺）
 
@@ -24,6 +26,7 @@ anno_content_{project_id}:
 anno_task_{project_id}:
   id            SERIAL PK
   anno_id       UUID NOT NULL        # FK → anno_content.anno_id
+  round         int NOT NULL          # 产生于第几轮
   label         string | null        # 标注值
   confidence    float | null         # 机器置信度（仅 MACHINE 行有值，0~1）
   source        enum DEFAULT 'HUMAN' # HUMAN | MACHINE
@@ -332,7 +335,8 @@ WHERE anno_id = {anno_id}
 
 ```
 UPDATE anno_content_{pid}
-SET final_label = {一致标签}, label_status = 2
+SET final_label = {一致标签}, label_status = 2,
+    labeled_round = {当前轮次}, labeled_at = NOW()
 WHERE anno_id = {anno_id}
 ```
 
@@ -364,7 +368,8 @@ WHERE anno_id = {anno_id}
 
 确认 →
   UPDATE anno_content_{pid}
-  SET final_label = {裁定标签}, label_status = 2
+  SET final_label = {裁定标签}, label_status = 2,
+      labeled_round = {当前轮次}, labeled_at = NOW()
   WHERE anno_id = {anno_id}
 ```
 
@@ -467,7 +472,18 @@ project_rounds:
 
   started_at        timestamp
   completed_at      timestamp
+
+project_round_vis:                    # 可视化点数据（每轮一份）
+  project_id      UUID
+  round           int
+  anno_id         UUID
+  x               float               # 2D 坐标（归一化到 0~1）
+  y               float
+  covered         boolean             # 是否被覆盖
+  delta           float | null        # 覆盖圆半径（仅标注中心点有值）
 ```
+
+`project_round_vis` 每轮全量写入（约 40KB/万条），前端轮次滑块切换时加载对应轮次。不存历史可删除旧轮。
 
 ### 12.2 指标汇算
 
@@ -564,13 +580,13 @@ project_rounds:
 ### 13.1 降维
 
 ```
-每轮结束后：
-  → 取所有标记对象的 embedding
+数据导入后：
+  → 取所有标记对象的 embedding（768 维）
   → t-SNE 或 UMAP 降到 2D
-  → 缓存为 (x, y) 坐标，入库
+  → 坐标 (x, y) 入库，只算一次
 ```
 
-降维结果逐轮更新（模型变化会略微改变 embedding 空间，但 2D 投影趋势稳定）。
+embedding 固定 → 2D 投影固定。每轮可视化只需重新着色（覆盖/未覆盖）和更新覆盖圆半径，不需重算投影。
 
 ### 13.2 可视化元素
 
