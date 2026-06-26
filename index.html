@@ -162,20 +162,12 @@ footer a { color:var(--muted); }
 
 <h3 style="display:inline;color:var(--accent);">SALT</h3> &nbsp; Selective Annotation for Labeling and Training（选择性标注：只标该标的部分，剩下的机器自动完成）。<br><br>
 <ul style="color:var(--muted);line-height:2;margin:0 0 16px;padding-left:20px;">
-<li><strong style="color:var(--text);">目标</strong> — 给大规模无标注数据集打标签。人工标注尽可能少，自动标注精度有理论保证</li>
+<li><strong style="color:var(--text);">目标</strong> — 给大规模无标注数据集打标签。人工标注尽可能少，理论保证自动标注精度</li>
 <li><strong style="color:var(--text);">传统方法</strong> — 雇人一条条标，一万条文本需上千人时。专家更贵，成本不可持续</li>
-<li><strong style="color:var(--text);">SALT 方法</strong> — 人只标一小部分，机器学完后标剩下的。系统自动循环：模型选最有价值的样本 → 专家在线抢单 → 模型学习 → 检查覆盖率，达标即停</li>
+<li><strong style="color:var(--text);">SALT 方法</strong> — 人只标一小部分，机器学完后标剩下的</li>
+<li><strong style="color:var(--text);">人机循环</strong> — 模型选最有价值的样本 → 专家在线抢单 → 模型学习 → 检查覆盖率；达标即停</li>
 <li><strong style="color:var(--text);">效果</strong> — 标注精度提升最高 72.4%，人力节省最高 75.7%，收敛时间减少 44%+</li>
 </ul>
-
-<h3 style="display:inline;color:var(--accent);">本平台</h3> &nbsp; 将 SALT 论文落地为企业级在线标注平台。<br><br>
-<ul style="color:var(--muted);line-height:2;margin:0 0 16px;padding-left:20px;">
-<li><strong style="color:var(--text);">管理员</strong> — 创建项目、上传数据、选择算法、分配标注专家和审阅员</li>
-<li><strong style="color:var(--text);">标注专家</strong> — 在线抢单标注，实时看到池子状态和机器推荐，提交即抢下一条</li>
-<li><strong style="color:var(--text);">系统自动</strong> — 迭代训练模型 → 检查覆盖率 → 选出下一批 → 达标自动停止</li>
-<li><strong style="color:var(--text);">导出</strong> — 项目完成后一键导出完整标注结果（CSV/JSON/TXT）</li>
-</ul>
-<p>支持多人交叉验证、管理员裁定、弱监督规则引擎、专家质量评估、审计日志等企业必需功能。私有部署，Free / Pro 双版本。</p>
 
 <h3>架构总览</h3>
 <div class="diagram">
