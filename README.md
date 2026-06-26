@@ -44,6 +44,7 @@
 | 文档 | 内容 |
 |------|------|
 | [SALT_PLUGIN.md](./SALT_PLUGIN.md) | 算法组件接口（Selector/Trainer/Encoder/WeakSupervisor）、编码器管理、模型管理、算法注册与装配 |
+| [algorithms/](./algorithms/) | 算法总纲与各算法详细说明 |
 | [salt.md](./salt.md) | SALT 论文原文（曲率自适应覆盖、选样策略、弱监督 LRR 规则框架） |
 
 ### 运营与运维
