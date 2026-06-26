@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALT 标注平台 - 设计文档</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #656d76;
+  --accent: #0969da;
+  --green: #1a7f37;
+  --orange: #9a6700;
+  --red: #cf222e;
+  --purple: #8250df;
+  --cyan: #1b7c83;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; line-height:1.6; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+.container { max-width:1100px; margin:0 auto; padding:0 24px; }
+header {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:48px 0; text-align:center;
+}
+header h1 { font-size:2.5em; margin-bottom:8px; background:linear-gradient(135deg,var(--accent),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+header p { color:var(--muted); font-size:1.1em; max-width:600px; margin:16px auto 0; }
+nav {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:100; padding:12px 0; overflow-x:auto;
+}
+nav .nav-inner { display:flex; gap:4px; flex-wrap:nowrap; }
+nav a { color:var(--muted); padding:6px 14px; border-radius:6px; font-size:.9em; white-space:nowrap; transition:.15s; }
+nav a:hover, nav a.active { color:var(--text); background:var(--border); text-decoration:none; }
+section { padding:64px 0; border-bottom:1px solid var(--border); }
+section h2 { font-size:1.8em; margin-bottom:8px; }
+section h3 { font-size:1.2em; margin:32px 0 12px; color:var(--accent); }
+section p { margin-bottom:16px; color:var(--muted); }
+section .subtitle { color:var(--muted); font-size:.95em; margin-bottom:32px; }
+.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin:24px 0; }
+.card {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:20px; transition:.15s;
+}
+.card:hover { border-color:var(--accent); }
+.card h4 { font-size:1.05em; margin-bottom:8px; color:var(--accent); }
+.card p { font-size:.9em; color:var(--muted); margin:0; }
+.tag {
+  display:inline-block; padding:2px 8px; border-radius:4px; font-size:.78em;
+  font-weight:600; margin-right:4px;
+}
+.tag-green { background:#dafbe1; color:var(--green); }
+.tag-orange { background:#fff8c5; color:var(--orange); }
+.tag-purple { background:#fbefff; color:var(--purple); }
+.tag-cyan { background:#ddf4ff; color:var(--cyan); }
+.tag-red { background:#ffebe9; color:var(--red); }
+
+.diagram {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:32px; margin:24px 0; overflow-x:auto; font-family:'SF Mono', 'Fira Code', monospace;
+  font-size:.85em; line-height:1.8; white-space:pre; color:var(--muted);
+}
+.diagram .hl { color:var(--accent); }
+.diagram .gr { color:var(--green); }
+.diagram .or { color:var(--orange); }
+.diagram .pu { color:var(--purple); }
+
+.flow-row {
+  display:flex; align-items:center; gap:12px; margin:24px 0; flex-wrap:wrap;
+}
+.flow-box {
+  background:var(--surface); border:2px solid var(--border); border-radius:10px;
+  padding:16px 24px; text-align:center; min-width:100px;
+}
+.flow-box.active { border-color:var(--accent); }
+.flow-box.done { border-color:var(--green); }
+.flow-box h4 { font-size:.95em; margin:0; }
+.flow-box p { font-size:.78em; color:var(--muted); margin:4px 0 0; }
+.flow-arrow { color:var(--muted); font-size:1.3em; }
+
+.state-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin:24px 0;
+}
+.state-box {
+  background:var(--surface); border:2px solid var(--border); border-radius:8px;
+  padding:16px; text-align:center;
+}
+.state-box .name { font-weight:700; font-size:1em; margin-bottom:4px; }
+.state-box .desc { font-size:.78em; color:var(--muted); }
+
+.stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin:24px 0; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; text-align:center; }
+.stat-card .num { font-size:2em; font-weight:700; color:var(--accent); }
+.stat-card .label { font-size:.82em; color:var(--muted); margin-top:4px; }
+
+table { width:100%; border-collapse:collapse; margin:24px 0; }
+th, td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+th { color:var(--muted); font-size:.82em; font-weight:600; text-transform:uppercase; }
+td { font-size:.9em; }
+
+.role-badge {
+  display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+  border-radius:20px; font-size:.82em; font-weight:600;
+}
+.role-admin { background:#ffebe9; color:var(--red); }
+.role-manager { background:#fff8c5; color:var(--orange); }
+.role-expert { background:#ddf4ff; color:var(--accent); }
+.role-reviewer { background:#fbefff; color:var(--purple); }
+.role-observer { background:#f6f8fa; color:var(--muted); }
+
+.doc-index { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; margin:24px 0; }
+.doc-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;
+  transition:.15s;
+}
+.doc-card:hover { border-color:var(--accent); }
+.doc-card .icon { font-size:1.3em; margin-bottom:8px; }
+.doc-card h4 { font-size:.95em; margin-bottom:4px; }
+.doc-card p { font-size:.8em; color:var(--muted); margin:0; }
+
+footer { text-align:center; padding:48px 0; color:var(--muted); font-size:.85em; }
+footer a { color:var(--muted); }
+
+@media (max-width:768px) {
+  header h1 { font-size:1.8em; }
+  .flow-row { flex-direction:column; }
+  .flow-arrow { transform:rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="container">
+<h1>SALT 标注平台</h1>
+<p>基于论文 SALT (Selective Annotation for Labeling and Training) 的企业级数据标注平台设计文档。用最少的专家标注量，达到有理论保证的标注精度。</p>
+</div>
+</header>
+
+<nav id="nav">
+<div class="container nav-inner">
+<a href="#overview">系统总览</a>
+<a href="#lifecycle">项目生命周期</a>
+<a href="#loop">标注协作循环</a>
+<a href="#model">数据模型</a>
+<a href="#permission">权限模型</a>
+<a href="#algorithm">算法体系</a>
+<a href="#weak">弱监督</a>
+<a href="#viz">可视化</a>
+</div>
+</nav>
+
+<!-- ============ OVERVIEW ============ -->
+<section id="overview">
+<div class="container">
+<h2>系统总览</h2>
+<p class="subtitle">多角色在线协作的数据标注平台，SALT 算法驱动的 HITL（人机协同）迭代标注</p>
+
+<h3 style="display:inline;color:var(--accent);">SALT</h3> &nbsp; Selective Annotation for Labeling and Training（选择性标注：只标该标的部分，剩下的机器自动完成）。<br><br>
+<ul style="color:var(--muted);line-height:2;margin:0 0 16px;padding-left:20px;">
+<li><strong style="color:var(--text);">目标</strong> — 给大规模无标注数据集打标签。人工标注尽可能少，自动标注精度有理论保证</li>
+<li><strong style="color:var(--text);">传统方法</strong> — 雇人一条条标，一万条文本需上千人时。专家更贵，成本不可持续</li>
+<li><strong style="color:var(--text);">SALT 方法</strong> — 人只标一小部分，机器学完后标剩下的。系统自动循环：模型选最有价值的样本 → 专家在线抢单 → 模型学习 → 检查覆盖率，达标即停</li>
+<li><strong style="color:var(--text);">效果</strong> — 标注精度提升最高 72.4%，人力节省最高 75.7%，收敛时间减少 44%+</li>
+</ul>
+
+<h3 style="display:inline;color:var(--accent);">本平台</h3> &nbsp; 将 SALT 论文落地为企业级在线标注平台。<br><br>
+<ul style="color:var(--muted);line-height:2;margin:0 0 16px;padding-left:20px;">
+<li><strong style="color:var(--text);">管理员</strong> — 创建项目、上传数据、选择算法、分配标注专家和审阅员</li>
+<li><strong style="color:var(--text);">标注专家</strong> — 在线抢单标注，实时看到池子状态和机器推荐，提交即抢下一条</li>
+<li><strong style="color:var(--text);">系统自动</strong> — 迭代训练模型 → 检查覆盖率 → 选出下一批 → 达标自动停止</li>
+<li><strong style="color:var(--text);">导出</strong> — 项目完成后一键导出完整标注结果（CSV/JSON/TXT）</li>
+</ul>
+<p>支持多人交叉验证、管理员裁定、弱监督规则引擎、专家质量评估、审计日志等企业必需功能。私有部署，Free / Pro 双版本。</p>
+
+<h3>架构总览</h3>
+<div class="diagram">
+<svg width="880" height="340" viewBox="0 0 880 340">
+  <rect x="0" y="0" width="880" height="340" rx="12" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="440" y="30" text-anchor="middle" font-size="14" font-weight="700" fill="var(--accent)">SALT 标注平台架构</text>
+
+  <!-- Roles row -->
+  <rect x="60" y="55" width="140" height="36" rx="6" fill="#ffebe9" stroke="var(--red)" stroke-width="1.5"/>
+  <text x="130" y="78" text-anchor="middle" font-size="13" fill="var(--red)">👤 管理员</text>
+  <rect x="260" y="55" width="140" height="36" rx="6" fill="#fff8c5" stroke="var(--orange)" stroke-width="1.5"/>
+  <text x="330" y="78" text-anchor="middle" font-size="13" fill="var(--orange)">✏️ 标注专家</text>
+  <rect x="460" y="55" width="140" height="36" rx="6" fill="#fbefff" stroke="var(--purple)" stroke-width="1.5"/>
+  <text x="530" y="78" text-anchor="middle" font-size="13" fill="var(--purple)">🔍 审阅员</text>
+  <rect x="660" y="55" width="140" height="36" rx="6" fill="#ddf4ff" stroke="var(--cyan)" stroke-width="1.5"/>
+  <text x="730" y="78" text-anchor="middle" font-size="13" fill="var(--cyan)">📦 导出员</text>
+
+  <!-- Down arrows from roles -->
+  <line x1="130" y1="91" x2="130" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="330" y1="91" x2="330" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="530" y1="91" x2="530" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="730" y1="91" x2="730" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Action row -->
+  <rect x="60" y="118" width="140" height="36" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="130" y="141" text-anchor="middle" font-size="12" fill="var(--text)">创建项目 · 分配专家</text>
+  <rect x="260" y="118" width="140" height="36" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="330" y="141" text-anchor="middle" font-size="12" fill="var(--text)">在线抢单 · 标注提交</text>
+  <rect x="460" y="118" width="140" height="36" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="530" y="141" text-anchor="middle" font-size="12" fill="var(--text)">审核 · 裁定</text>
+  <rect x="660" y="118" width="140" height="36" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="730" y="141" text-anchor="middle" font-size="12" fill="var(--text)">导出结果</text>
+
+  <!-- Down arrows to engine -->
+  <line x1="130" y1="154" x2="130" y2="180" stroke="var(--muted)" stroke-width="1"/>
+  <line x1="200" y1="136" x2="330" y2="180" stroke="var(--muted)" stroke-width="1"/>
+  <line x1="530" y1="154" x2="530" y2="180" stroke="var(--muted)" stroke-width="1"/>
+  <line x1="600" y1="136" x2="730" y2="180" stroke="var(--muted)" stroke-width="1"/>
+
+  <!-- SALT Engine box -->
+  <rect x="160" y="183" width="560" height="60" rx="8" fill="#ddf4ff" stroke="var(--accent)" stroke-width="2"/>
+  <text x="440" y="208" text-anchor="middle" font-size="14" font-weight="700" fill="var(--accent)">🧠 SALT 引擎</text>
+  <text x="440" y="228" text-anchor="middle" font-size="11" fill="var(--text)">选样 → 模型训练 → 覆盖分析 → 达标自动停止</text>
+
+  <!-- Down arrow -->
+  <line x1="440" y1="243" x2="440" y2="268" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Output row -->
+  <rect x="310" y="271" width="260" height="36" rx="6" fill="#dafbe1" stroke="var(--green)" stroke-width="1.5"/>
+  <text x="440" y="294" text-anchor="middle" font-size="13" fill="var(--green)">✅ 达标完成 · 导出标注数据集</text>
+
+  <!-- Arrow marker def -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+
+<h3>平台特性</h3>
+<div class="card-grid">
+<div class="card">
+<h4>私有化部署</h4>
+<p>Free/Pro 双版本 license 授权，免费版功能完整（200 条/10 项目），Pro 无限制 + 技术支持 + 版本更新</p>
+</div>
+<div class="card">
+<h4>多用户 · 多项目</h4>
+<p>企业级多租户架构，管理员创建项目、分配成员，专家在不同项目中有不同角色，项目独立运转互不干扰</p>
+</div>
+<div class="card">
+<h4>角色 · 权限 · 审计</h4>
+<p>两层 RBAC（系统角色 + 项目角色），公开/私有项目，全操作审计日志，管理员可自定义角色</p>
+</div>
+<div class="card">
+<h4>可视化仪表盘</h4>
+<p>覆盖进度 2D 投影、轮次趋势、人机耗时比、弱监督效果、专家一致性评估</p>
+</div>
+<div class="card">
+<h4>专家在线抢单</h4>
+<p>共享任务池、乐观锁并发、持有上限、机器推荐辅助、置信度驱动动态人力分配</p>
+</div>
+<div class="card">
+<h4>审阅员（可选）</h4>
+<p>逐条审核标签、修改/通过/打回、一键通过，可配置跳过。专家准确率与一致性持续评估</p>
+</div>
+<div class="card">
+<h4>双数据库设计</h4>
+<p>主库（MB 级）存用户、权限、项目配置，高频备份；标注库（GB 级）按项目动态建表存标注数据，独立扩容</p>
+</div>
+<div class="card">
+<h4>模型管理 · 模型池</h4>
+<p>每轮训练产出模型版本，在线模型池 LRU 淘汰 + 空闲回收，可配最大在线数 / 内存上限 / 空闲时长，调用方不感知加载细节</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ============ LIFECYCLE ============ -->
+<section id="lifecycle">
+<div class="container">
+<h2>项目生命周期</h2>
+<p class="subtitle">项目是标注工作的基本单元，包含一次标注任务所需的全部要素</p>
+
+<h3>项目是什么</h3>
+<p>一个项目代表一次完整的标注任务。管理员创建项目时确定以下内容：</p>
+
+<div class="card-grid">
+<div class="card"><h4>标签集 <span class="tag tag-green">固定</span></h4><p>一组互斥或可多选的分类标签，如「正面、负面、中性」。创建后不可修改</p></div>
+<div class="card"><h4>标记任务描述</h4><p>每个标签的含义说明，供专家标注时参考。与标签集绑定</p></div>
+<div class="card"><h4>算法 <span class="tag tag-purple">选择</span></h4><p>从已注册的算法名称中选取，如「SALT 标准版」或「SALT + 弱监督」</p></div>
+<div class="card"><h4>成员 <span class="tag tag-orange">分配</span></h4><p>管理员将用户分配为项目内的标注专家、审阅员、数据导出员等角色</p></div>
+<div class="card"><h4>配置参数</h4><p>精度容忍度 ζ、每轮标注量 bgt、是否跳过审阅、是否启用机器作答等</p></div>
+<div class="card"><h4>项目克隆</h4><p>从已有项目快速复制标签集、算法、成员、配置，算法名不变可复用已训练模型热启动</p></div>
+</div>
+
+<h3>状态机</h3>
+
+<div class="flow-row">
+<div class="flow-box"><h4>DRAFT</h4><p>创建项目<br>标签集已定</p></div>
+<div class="flow-arrow">→</div>
+<div class="flow-box"><h4>EMBEDDING</h4><p>正在计算<br>文本向量</p></div>
+<div class="flow-arrow">→</div>
+<div class="flow-box"><h4>READY</h4><p>就绪<br>等待启动</p></div>
+<div class="flow-arrow">→</div>
+<div class="flow-box active"><h4>RUNNING</h4><p>SALT HITL<br>多轮循环</p></div>
+<div class="flow-arrow">→</div>
+<div class="flow-box done"><h4>COMPLETED</h4><p>达标<br>可导出</p></div>
+</div>
+<p style="text-align:center; color:var(--muted); font-size:.85em;">RUNNING 状态下管理员可随时 PAUSE（暂停），恢复后继续当前轮次</p>
+
+<h3>单轮 SALT 循环</h3>
+<div class="diagram">
+<svg width="860" height="130" viewBox="0 0 860 130">
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="430" y="18" text-anchor="middle" font-size="14" font-weight="700" fill="var(--accent)">Round N 循环</text>
+
+  <rect x="10" y="32" width="140" height="52" rx="6" fill="#dafbe1" stroke="var(--green)" stroke-width="1.5"/>
+  <text x="80" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="var(--green)">SAMPLING</text>
+  <text x="80" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">SALT 选取 bgt 条样本</text>
+
+  <text x="160" y="63" font-size="18" fill="var(--muted)">→</text>
+
+  <rect x="180" y="32" width="140" height="52" rx="6" fill="#fff8c5" stroke="var(--orange)" stroke-width="1.5"/>
+  <text x="250" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="var(--orange)">ANNOTATING</text>
+  <text x="250" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">专家在线抢单标注</text>
+
+  <text x="330" y="63" font-size="18" fill="var(--muted)">→</text>
+
+  <rect x="350" y="32" width="140" height="52" rx="6" fill="#fbefff" stroke="var(--purple)" stroke-width="1.5"/>
+  <text x="420" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="var(--purple)">REVIEWING</text>
+  <text x="420" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">审核（可跳过）</text>
+
+  <text x="500" y="63" font-size="18" fill="var(--muted)">→</text>
+
+  <rect x="520" y="32" width="140" height="52" rx="6" fill="#ddf4ff" stroke="var(--cyan)" stroke-width="1.5"/>
+  <text x="590" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="var(--cyan)">TRAINING</text>
+  <text x="590" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">MLP 训练</text>
+
+  <text x="670" y="63" font-size="18" fill="var(--muted)">→</text>
+
+  <rect x="690" y="32" width="150" height="52" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <text x="765" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="var(--accent)">COVERAGE</text>
+  <text x="765" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">检查覆盖</text>
+
+  <!-- Branch area below -->
+  <rect x="650" y="100" width="80" height="28" rx="5" fill="#dafbe1" stroke="var(--green)" stroke-width="1.5"/>
+  <text x="690" y="118" text-anchor="middle" font-size="11" font-weight="600" fill="var(--green)">✅ 达标</text>
+
+  <rect x="750" y="100" width="100" height="28" rx="5" fill="#ffebe9" stroke="var(--red)" stroke-width="1.5"/>
+  <text x="800" y="118" text-anchor="middle" font-size="11" font-weight="600" fill="var(--red)">下一轮 →</text>
+
+  <line x1="765" y1="84" x2="765" y2="100" stroke="var(--muted)" stroke-width="1"/>
+  <line x1="690" y1="100" x2="800" y2="100" stroke="var(--muted)" stroke-width="1"/>
+  <line x1="690" y1="100" x2="690" y2="128" stroke="var(--green)" stroke-width="1.5"/>
+  <line x1="800" y1="100" x2="800" y2="128" stroke="var(--red)" stroke-width="1.5"/>
+</svg>
+</div>
+</section>
+
+<!-- ============ ANNOTATION LOOP ============ -->
+<section id="loop">
+<div class="container">
+<h2>标注协作循环</h2>
+<p class="subtitle">一张任务表承载全部状态，乐观锁串行化，专家在线抢单</p>
+
+<h3>抢单机制</h3>
+<ul style="color:var(--muted);line-height:2;margin:0 0 16px;padding-left:20px;">
+<li>任务表每条记录三种状态：<strong>待抢 → 标记中 → 已提交</strong></li>
+<li>专家优先从待抢池中取，CAS 更新为标记中</li>
+<li>待抢池空则从其他专家的标记中直接抢走</li>
+<li>所有并发冲突通过乐观锁（version）解决，不长期持有资源</li>
+<li>提交或放弃后可抢下一条，一次只持有一条</li>
+</ul>
+
+<h3>核心特性</h3>
+<div class="card-grid">
+<div class="card"><h4>逐一作答 <span class="tag tag-green">一次一条</span></h4><p>专家每次只持有一条任务，必须提交或放弃后，才能抢下一条。不允许多条堆积</p></div>
+<div class="card"><h4>乐观锁冲突 <span class="tag tag-orange">version</span></h4><p>提交时校验 version，被他人抢先则提示刷新</p></div>
+<div class="card"><h4>机器辅助 <span class="tag tag-purple">可选</span></h4><p>模型先作答，专家标注时可看到机器推荐</p></div>
+<div class="card"><h4>动态人力 <span class="tag tag-purple">可选</span></h4><p>机器高置信 → 1 人复核；低置信 → 2 人交叉验证</p></div>
+<div class="card"><h4>多人裁定 <span class="tag tag-purple">可选</span></h4><p>人-人/人-机不一致 → 管理员最终裁决</p></div>
+<div class="card"><h4>质量抽检 <span class="tag tag-purple">可选</span></h4><p>随机 p% 样本强制双人标注，监控专家一致性</p></div>
+</div>
+
+<h3>标注界面</h3>
+<p>标注界面由标记类型（anno_type）的<strong>渲染脚本生成完整 HTML 页面</strong>，支持文本、图片、富媒体等任意格式自由排版。</p>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:24px 0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);">
+    <span style="font-size:.9em;color:var(--text);">项目: 评论情感分类</span>
+    <span style="font-size:.85em;color:var(--muted);">
+      池: <span style="color:var(--green);font-weight:600;">待抢12</span> /
+      <span style="color:var(--orange);font-weight:600;">我持1</span> /
+      <span style="color:var(--accent);font-weight:600;">已完成28</span> / 共40
+    </span>
+  </div>
+  <div style="padding:24px;">
+    <div style="background:#f6f8fa;border:1px dashed var(--border);border-radius:8px;padding:24px;margin-bottom:20px;">
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="width:80px;height:80px;border-radius:6px;background:linear-gradient(135deg,#ddf4ff,#0969da);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5em;">🖼️</div>
+        <div>
+          <div style="font-size:.85em;color:var(--muted);margin-bottom:4px;">🧑 科技观察者 · 2小时前</div>
+          <div style="font-size:.95em;color:var(--text);line-height:1.7;">华为今日发布新一代AI芯片，算力提升<span style="color:var(--accent);font-weight:600;">300%</span>，分析师看好其在智能驾驶领域的应用前景。受此消息影响，产业链相关概念股集体走强。</div>
+          <div style="margin-top:8px;font-size:.82em;color:var(--muted);">👍 128 &nbsp; 💬 36 &nbsp; 🔗 分享</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#fbefff;border-radius:6px;padding:6px 14px;display:inline-block;margin-bottom:16px;">
+      <span style="font-size:.85em;color:var(--purple);">💡 机器推荐: 正面（可选显隐）</span>
+    </div>
+    <div style="margin-bottom:20px;">
+      <span style="font-size:.9em;color:var(--text);margin-right:16px;">你的标注:</span>
+      <label style="margin-right:20px;cursor:pointer;font-size:.9em;color:var(--text);">
+        <input type="radio" name="label" style="margin-right:4px;accent-color:var(--accent);">正面
+      </label>
+      <label style="margin-right:20px;cursor:pointer;font-size:.9em;color:var(--text);">
+        <input type="radio" name="label" style="margin-right:4px;accent-color:var(--accent);">负面
+      </label>
+      <label style="margin-right:20px;cursor:pointer;font-size:.9em;color:var(--text);">
+        <input type="radio" name="label" style="margin-right:4px;accent-color:var(--accent);">中性
+      </label>
+      <label style="cursor:pointer;font-size:.9em;color:var(--text);">
+        <input type="radio" name="label" style="margin-right:4px;accent-color:var(--accent);">垃圾
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button style="padding:7px 18px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;font-size:.85em;">跳过</button>
+      <button style="padding:7px 18px;border:none;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;font-size:.85em;font-weight:600;">提交并抢下一条</button>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ DATA MODEL ============ -->
+<section id="model">
+<div class="container">
+<h2>数据模型</h2>
+<p class="subtitle">双库分离——结构数据高频备份、标注数据独立扩容，职责清晰互不干扰</p>
+
+<p><strong>为什么分离？</strong> 用户、权限、项目配置等结构数据量小（MB 级）但至关重要，需要高频备份和高可用。标注数据随项目规模线性增长（GB 级），按项目动态建表，备份频率低，可独立扩容或分片。两者物理隔离后，标注库的批量读写不会拖慢主库的权限校验和页面响应，删项目只需 DROP 标注库的表。</p>
+
+<h3>主库 — 结构数据</h3>
+
+<h4 style="color:var(--muted);font-size:.85em;margin:16px 0 8px;">全局资源</h4>
+<div class="card-grid">
+<div class="card"><h4>用户 User</h4><p>登录账号、密码。新用户默认拥有 observer 角色，管理员可追加角色</p></div>
+<div class="card"><h4>角色 Role</h4><p>内置 observer / annotator / reviewer / project_manager / admin。管理员可基于内置角色复制并增减 API 白名单，创建自定义角色</p></div>
+<div class="card"><h4>审计日志 AuditLog</h4><p>全操作记录：谁在什么时候对什么做了什么。只追加不删，管理员检索</p></div>
+<div class="card"><h4>授权 License</h4><p>license 信息、版本（Free/Pro）、有效期</p></div>
+</div>
+
+<h4 style="color:var(--muted);font-size:.85em;margin:16px 0 8px;">编码器与标记类型</h4>
+<div class="card-grid">
+<div class="card"><h4>编码器 Encoder</h4><p>已注册的编码器名称、类型（TEXT/IMAGE）、输出维度、调用方式</p></div>
+<div class="card"><h4>标记类型 AnnoType</h4><p>字段定义 + 渲染脚本 + 四种视图（专家/列表/模型/导出）。内置 + 用户自定义</p></div>
+</div>
+
+<h4 style="color:var(--muted);font-size:.85em;margin:16px 0 8px;">项目级</h4>
+<div class="card-grid">
+<div class="card"><h4>项目 Project</h4><p>标签集、算法名称、配置参数（ζ, bgt, 审阅开关等）、生命周期状态</p></div>
+<div class="card"><h4>项目成员 ProjectMember</h4><p>用户在项目中的角色（OWNER/MANAGER/ANNOTATOR/REVIEWER/OBSERVER）</p></div>
+<div class="card"><h4>批次 Dataset</h4><p>一次上传的记录，v1 每项目一个批次，预留 1:N</p></div>
+<div class="card"><h4>轮次 ProjectRound</h4><p>每轮覆盖率、风险差距、模型精度、人机耗时、专家活跃度</p></div>
+<div class="card"><h4>可视化点 ProjectRoundVis</h4><p>每轮 2D 降维坐标 + covered 状态 + 覆盖圆半径 δ</p></div>
+<div class="card"><h4>模型 Model</h4><p>每轮训练产出一个版本，存文件路径 + 指标，最新 READY 用于机器作答</p></div>
+<div class="card"><h4>弱监督资源</h4><p>labeling_functions（LF 定义）+ lrr_rules（LRR 规则集），可跨项目复用</p></div>
+</div>
+
+<h4 style="color:var(--muted);font-size:.85em;margin:16px 0 8px;">运行支撑</h4>
+<div class="card-grid">
+<div class="card"><h4>算法任务 AlgorithmTask</h4><p>异步任务状态跟踪（embedding / tsne / weak_supervision），进度轮询</p></div>
+<div class="card"><h4>通知 Notification</h4><p>新轮次开始、任务被抢、审阅通知、项目完成等推送</p></div>
+<div class="card"><h4>用户事件 ProjectEvent</h4><p>项目时间线：导入完成、轮次开始、训练完成、项目达标</p></div>
+</div>
+
+<h3>标注库 — 按项目动态建表</h3>
+<div class="card-grid">
+<div class="card"><h4>标记对象表 anno_content_{pid}</h4><p>由 anno_type.fields 动态生成结构。只存 anno_id + 原始字段（如 raw_text、user_name、content 等），导入后只读不修改</p></div>
+<div class="card"><h4>向量表 anno_embedding_{pid}</h4><p>anno_id + embedding（768 维浮点数组）。导入时异步批量计算，仅一次入库，后续轮次直接读取</p></div>
+<div class="card"><h4>标注结果表 anno_label_{pid}</h4><p>anno_id + final_label + label_status（0待标注/1标注中/2已完成）+ labeled_round + labeled_at。任务全部完成后回写</p></div>
+<div class="card"><h4>标记任务表 anno_task_{pid}</h4><p>source（HUMAN/MACHINE）、status（0待抢/1抢占中/2已提交）、label、confidence、expert_id、round、乐观锁 version</p></div>
+<div class="card"><h4>弱标签表 anno_weak_{pid}</h4><p>弱监督模块输出的弱标签结果。anno_id + weak_label + confidence + source_lf。启用弱监督时创建</p></div>
+</div>
+</div>
+</section>
+
+<!-- ============ PERMISSION ============ -->
+<section id="permission">
+<div class="container">
+<h2>权限模型</h2>
+<p class="subtitle">两层 RBAC：系统角色（API 白名单） + 项目角色（项目内权限）。采用标准开源权限框架将角色与具体 API 绑定</p>
+
+<h3>系统角色（内置）</h3>
+<div class="state-grid">
+<div class="state-box"><span class="role-badge role-observer">observer</span><p style="margin-top:8px;font-size:.82em;">只读浏览<br>新用户默认</p></div>
+<div class="state-box"><span class="role-badge role-expert">annotator</span><p style="margin-top:8px;font-size:.82em;">抢单 + 提交<br>+ observer</p></div>
+<div class="state-box"><span class="role-badge role-reviewer">reviewer</span><p style="margin-top:8px;font-size:.82em;">审阅 + 裁定<br>+ observer</p></div>
+<div class="state-box"><span class="role-badge role-manager">project_manager</span><p style="margin-top:8px;font-size:.82em;">创建项目 + 分配<br>+ 导入导出</p></div>
+<div class="state-box"><span class="role-badge role-admin">admin</span><p style="margin-top:8px;font-size:.82em;">全部权限<br>管理角色 + 用户</p></div>
+</div>
+<p style="color:var(--muted);font-size:.85em;">管理员可基于内置角色复制后增减 API 白名单，创建自定义角色。用户可身兼多角色。</p>
+
+<h3>项目角色（不可自定义）</h3>
+<div class="state-grid">
+<div class="state-box"><span class="role-badge role-admin">OWNER</span><p style="margin-top:8px;font-size:.82em;">项目创建者<br>全部权限</p></div>
+<div class="state-box"><span class="role-badge role-manager">MANAGER</span><p style="margin-top:8px;font-size:.82em;">分配成员<br>导入/导出/启停</p></div>
+<div class="state-box"><span class="role-badge role-expert">ANNOTATOR</span><p style="margin-top:8px;font-size:.82em;">抢单标注<br>提交/放弃</p></div>
+<div class="state-box"><span class="role-badge role-reviewer">REVIEWER</span><p style="margin-top:8px;font-size:.82em;">审阅标签<br>修改/通过/打回</p></div>
+<div class="state-box"><span class="role-badge role-observer">OBSERVER</span><p style="margin-top:8px;font-size:.82em;">只读浏览<br>不能操作</p></div>
+</div>
+
+<h3>项目可见性</h3>
+<div class="card-grid">
+<div class="card"><h4>PUBLIC <span class="tag tag-green">公开</span></h4><p>所有登录用户可见，类似 GitHub 公开仓库</p></div>
+<div class="card"><h4>PRIVATE <span class="tag tag-red">私有</span></h4><p>仅被显式添加的成员可见，未添加返回 404</p></div>
+</div>
+</section>
+
+<!-- ============ ALGORITHM ============ -->
+<section id="algorithm">
+<div class="container">
+<h2>算法体系</h2>
+<p class="subtitle">9 个算法按执行时序排列，纯函数 + DB Wrapper 两层架构，异步任务管理</p>
+
+<div class="diagram">
+<svg width="860" height="340" viewBox="0 0 860 340">
+  <!-- Title -->
+  <text x="430" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="var(--accent)">9 个算法 · 按时序排列</text>
+
+  <!-- === IMPORT PHASE === -->
+  <rect x="10" y="40" width="840" height="28" rx="5" fill="#f6f8fa" stroke="var(--muted)" stroke-width="1"/>
+  <text x="430" y="59" text-anchor="middle" font-size="12" fill="var(--muted)">导入阶段（异步）</text>
+
+  <rect x="10" y="78" width="270" height="56" rx="6" fill="#f6f8fa" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="145" y="102" text-anchor="middle" font-size="14" font-weight="600" fill="var(--muted)">多媒体 → 文本预处理</text>
+  <text x="145" y="122" text-anchor="middle" font-size="11" fill="var(--muted)">image/video/audio to text · OCR</text>
+
+  <rect x="295" y="78" width="270" height="56" rx="6" fill="#ddf4ff" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="430" y="102" text-anchor="middle" font-size="15" font-weight="600" fill="var(--accent)">① embedding 批量计算</text>
+  <text x="430" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">文本 → 768维向量</text>
+
+  <rect x="580" y="78" width="270" height="56" rx="6" fill="#ddf4ff" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="715" y="102" text-anchor="middle" font-size="15" font-weight="600" fill="var(--accent)">⑨ 降维 + 归一化</text>
+  <text x="715" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">t-SNE/UMAP → (0,1)×(0,1)</text>
+
+  <!-- === ROUND PHASE === -->
+  <rect x="10" y="150" width="840" height="28" rx="5" fill="#f6f8fa" stroke="var(--muted)" stroke-width="1"/>
+  <text x="430" y="169" text-anchor="middle" font-size="12" fill="var(--muted)">每轮迭代（首轮跳过③④，同步）</text>
+
+  <rect x="10" y="190" width="150" height="56" rx="6" fill="#fff8c5" stroke="var(--orange)" stroke-width="1.5"/>
+  <text x="85" y="212" text-anchor="middle" font-size="14" font-weight="600" fill="var(--orange)">② 初始选样</text>
+  <text x="85" y="232" text-anchor="middle" font-size="11" fill="var(--muted)">随机挑 initial</text>
+
+  <rect x="175" y="190" width="160" height="56" rx="6" fill="#dafbe1" stroke="var(--green)" stroke-width="1.5"/>
+  <text x="255" y="212" text-anchor="middle" font-size="14" font-weight="600" fill="var(--green)">③ 模型训练</text>
+  <text x="255" y="232" text-anchor="middle" font-size="11" fill="var(--muted)">MLP · 交叉熵</text>
+
+  <rect x="350" y="190" width="170" height="56" rx="6" fill="#fbefff" stroke="var(--purple)" stroke-width="1.5"/>
+  <text x="435" y="212" text-anchor="middle" font-size="14" font-weight="600" fill="var(--purple)">④ 模型预测</text>
+  <text x="435" y="232" text-anchor="middle" font-size="11" fill="var(--muted)">机器作答 + 置信度</text>
+
+  <rect x="10" y="260" width="395" height="56" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <text x="207" y="282" text-anchor="middle" font-size="14" font-weight="600" fill="var(--accent)">⑤ 覆盖半径 ⑥ 覆盖率检查 ⑦ 下一轮选样</text>
+  <text x="207" y="302" text-anchor="middle" font-size="11" fill="var(--muted)">核心 SALT 算法（公式 3 + Theorem 3 + Algorithm 1）</text>
+
+  <rect x="420" y="260" width="220" height="56" rx="6" fill="#ffebe9" stroke="var(--red)" stroke-width="1.5"/>
+  <text x="530" y="282" text-anchor="middle" font-size="14" font-weight="600" fill="var(--red)">⑧ 弱监督（可选）</text>
+  <text x="530" y="302" text-anchor="middle" font-size="11" fill="var(--muted)">LF → 融合模型 P → LRR 修正</text>
+</svg>
+</div>
+
+<h3>用户可见的算法名称</h3>
+<p>算法以"族"的形式提供给用户——每个名称代表一组内部组件的装配（编码器 + 选样策略 + 训练器 + 可选弱监督）。用户只需从下拉列表选择友好名称，内部装配细节完全透明。</p>
+<div class="card-grid">
+<div class="card">
+<h4>SALT 标准版 <span class="tag tag-green">内置</span></h4>
+<p>编码器: Qwen v4 · 选样: SALT 内置 · 训练: MLP · 弱监督: 无</p>
+</div>
+<div class="card">
+<h4>SALT + 弱监督 <span class="tag tag-purple">内置</span></h4>
+<p>编码器: Qwen v4 · 选样: SALT 内置 · 训练: MLP · 弱监督: LRR 引擎</p>
+</div>
+</div>
+
+<h3>异步任务 <span class="tag tag-orange">algorithm_tasks</span></h3>
+<p>耗时算法（embedding、降维、弱监督）以异步任务形式执行。任务管理器负责调度与状态跟踪，前端可轮询查看任务进度。</p>
+<div class="diagram">
+<svg width="780" height="200" viewBox="0 0 780 200">
+  <!-- Top: Task Manager -->
+  <rect x="20" y="10" width="450" height="55" rx="8" fill="#fff8c5" stroke="var(--orange)" stroke-width="2"/>
+  <text x="245" y="34" text-anchor="middle" font-size="13" font-weight="600" fill="var(--orange)">任务管理器（Task Manager）</text>
+  <text x="245" y="54" text-anchor="middle" font-size="11" fill="var(--muted)">创建任务 · 调度执行 · 状态跟踪（PENDING→RUNNING→COMPLETED/FAILED）· 进度查询</text>
+
+  <!-- Arrow down -->
+  <line x1="245" y1="65" x2="245" y2="90" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+  <!-- Wrapper -->
+  <rect x="20" y="93" width="450" height="45" rx="8" fill="#ddf4ff" stroke="var(--accent)" stroke-width="2"/>
+  <text x="245" y="115" text-anchor="middle" font-size="13" font-weight="600" fill="var(--accent)">DB-aware Wrapper</text>
+  <text x="245" y="131" text-anchor="middle" font-size="10" fill="var(--muted)">读标注库数据 → 调 Core → 更新 progress → 写入结果</text>
+
+  <!-- Arrow down -->
+  <line x1="245" y1="138" x2="245" y2="158" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+  <!-- Core -->
+  <rect x="20" y="161" width="450" height="32" rx="8" fill="#dafbe1" stroke="var(--green)" stroke-width="2"/>
+  <text x="245" y="182" text-anchor="middle" font-size="13" font-weight="600" fill="var(--green)">Core Algorithm（纯函数，不接触数据库，可单元测试）</text>
+
+  <!-- DB connections -->
+  <rect x="620" y="10" width="140" height="40" rx="8" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="690" y="35" text-anchor="middle" font-size="12" fill="var(--text)">🗄️ 主库</text>
+  <line x1="470" y1="30" x2="620" y2="30" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <rect x="620" y="96" width="140" height="40" rx="8" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="690" y="121" text-anchor="middle" font-size="12" fill="var(--text)">🗄️ 标注库</text>
+  <line x1="470" y1="116" x2="620" y2="116" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+</svg>
+</div>
+</div>
+</section>
+
+<!-- ============ WEAK SUPERVISION ============ -->
+<section id="weak">
+<div class="container">
+<h2>弱监督</h2>
+<p class="subtitle">全自动弱标签生成——管理员写好规则，系统自动打标辅助训练，大幅减少人工标注量</p>
+
+<h3>处理流程</h3>
+<div class="diagram">
+<svg width="860" height="150" viewBox="0 0 860 150">
+  <defs>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- Step 1: LFs -->
+  <rect x="10" y="20" width="250" height="60" rx="8" fill="#dafbe1" stroke="var(--green)" stroke-width="2"/>
+  <text x="135" y="44" text-anchor="middle" font-size="14" font-weight="600" fill="var(--green)">LF 标注函数</text>
+  <text x="135" y="64" text-anchor="middle" font-size="11" fill="var(--muted)">逐条执行 · 快速粗标 · 可并行</text>
+
+  <line x1="260" y1="50" x2="300" y2="50" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow4)"/>
+  <text x="280" y="42" text-anchor="middle" font-size="9" fill="var(--muted)">完整 Λ 矩阵</text>
+
+  <!-- Step 2: P -->
+  <rect x="305" y="20" width="250" height="60" rx="8" fill="#ddf4ff" stroke="var(--accent)" stroke-width="2"/>
+  <text x="430" y="44" text-anchor="middle" font-size="14" font-weight="600" fill="var(--accent)">融合模型 P</text>
+  <text x="430" y="64" text-anchor="middle" font-size="11" fill="var(--muted)">行间一致性 → LF 可靠性 → 软标签</text>
+
+  <line x1="555" y1="50" x2="595" y2="50" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow4)"/>
+  <text x="575" y="42" text-anchor="middle" font-size="9" fill="var(--muted)">软标签（内部）</text>
+
+  <!-- Step 3: LRR -->
+  <rect x="600" y="20" width="250" height="60" rx="8" fill="#fbefff" stroke="var(--purple)" stroke-width="2"/>
+  <text x="725" y="44" text-anchor="middle" font-size="14" font-weight="600" fill="var(--purple)">LRR 规则修正</text>
+  <text x="725" y="64" text-anchor="middle" font-size="11" fill="var(--muted)">裁决冲突 · 过滤噪声 · 逐条执行</text>
+
+  <line x1="725" y1="80" x2="725" y2="108" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow4)"/>
+
+  <!-- Output -->
+  <rect x="600" y="112" width="250" height="32" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <text x="725" y="133" text-anchor="middle" font-size="13" font-weight="600" fill="var(--accent)">硬标签 + 置信度（或 null）</text>
+
+  <!-- Annotations -->
+  <text x="10" y="108" font-size="10" fill="var(--muted)">输入: 标记对象文本（model 视图）</text>
+  <text x="10" y="122" font-size="10" fill="var(--muted)">输出: 每对象 × 每 LF → label | ⊥</text>
+
+  <text x="305" y="108" font-size="10" fill="var(--muted)">输入: 完整 Λ 矩阵（必须全部 LF 全部对象）</text>
+  <text x="305" y="122" font-size="10" fill="var(--muted)">方法: 概率图模型 · EM/Gibbs 推断 · 非深度学习</text>
+</svg>
+</div>
+<h3>LF（标注函数）</h3>
+<p>管理员编写的自动标注规则。输入 = 标记对象的 model 视图文本，输出 = 标签或弃权（None）。四种类型，每条 LF 独立逐条执行，不需看其他对象。</p>
+
+<div class="card-grid">
+<div class="card"><h4>关键字 <span class="tag tag-green">keyword</span></h4><p>包含"涨停""央行""GDP" → 输出「财经」。简单快速，覆盖面广</p></div>
+<div class="card"><h4>正则 <span class="tag tag-purple">regex</span></h4><p>匹配股票代码 <code>\d{6}\.(SZ|SH)</code> → 输出「财经」。结构化模式</p></div>
+<div class="card"><h4>外部知识库 <span class="tag tag-cyan">kb</span></h4><p>查公司名表：文本中的实体命中科技公司表 → 输出「科技」</p></div>
+<div class="card"><h4>Python 脚本 <span class="tag tag-orange">python</span></h4><p>任意逻辑：文本长度 > 200 且含"公告" → 输出「财经」</p></div>
+</div>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin:24px 0;">
+<h4 style="margin:0 0 12px;font-size:.95em;">示例</h4>
+<div style="background:#f6f8fa;border-radius:6px;padding:14px;margin-bottom:10px;">
+<p style="font-size:.85em;color:var(--muted);margin:0 0 8px;">文本：「苹果公司发布财报股价大涨，NBA湖人队晋级季后赛」</p>
+<table style="margin:0;">
+<tr><th style="font-size:.8em;">LF</th><th style="font-size:.8em;">匹配</th><th style="font-size:.8em;">输出</th></tr>
+<tr><td style="font-size:.82em;">LF_keyword_money</td><td style="font-size:.82em;">"股价"</td><td style="font-size:.82em;color:var(--green);">财经</td></tr>
+<tr><td style="font-size:.82em;">LF_keyword_sports</td><td style="font-size:.82em;">"NBA"</td><td style="font-size:.82em;color:var(--orange);">体育</td></tr>
+<tr><td style="font-size:.82em;">LF_entity_org</td><td style="font-size:.82em;">"苹果"</td><td style="font-size:.82em;color:var(--purple);">科技</td></tr>
+<tr><td style="font-size:.82em;">LF_regex_stock</td><td style="font-size:.82em;">无匹配</td><td style="font-size:.82em;color:var(--muted);">弃权</td></tr>
+</table>
+</div>
+<p style="font-size:.85em;color:var(--muted);margin:0;">三条 LF 给出三个不同标签——冲突。交给融合模型 P。</p>
+</div>
+
+<h3>融合模型 P</h3>
+<p>轻量概率图模型（非深度学习），与 Snorkel 原理相同。从 LF 间的一致/矛盾模式推断每条 LF 的类别条件错误率，综合给出软标签。不需要任何人工标注——仅凭 LF 输出模式自我校准。</p>
+<p style="color:var(--muted);font-size:.85em;">需要完整 Λ 矩阵（全部对象 × 全部 LF 的输出）才能工作，不能逐条处理。权重每次执行重新估计，不固化。软标签仅模块内部流转，不对外输出。</p>
+
+<h3>LRR（标签修正规则）</h3>
+<p>确定性逻辑规则，修正 P 也无法解决的错误模式。形式为 IF-THEN：前提条件命中 → 强制修正标签或丢弃。</p>
+
+<div class="card-grid">
+<div class="card"><h4>冲突裁决</h4><p>多条 LF 矛盾时选更可靠的：<br><code>IF LF_sports=体育 ∧ LF_org=科技 THEN 取体育</code><br>（历史数据中体育关键词更可靠）</p></div>
+<div class="card"><h4>证据传播</h4><p>利用样本间关系传播标签：<br><code>IF 已标样本 y=体育 ∧ 同主题 THEN 标签=体育</code></p></div>
+<div class="card"><h4>噪声过滤</h4><p>丢弃低置信度标签：<br><code>IF LF 输出科技 ∧ Pr(科技)<0.15 THEN 丢弃</code></p></div>
+<div class="card"><h4>冲突解决</h4><p>多条 LRR 同时命中 → 按加权打分排序（置信度×0.5 + 特异性×0.3 + 一致性×0.2），差距太小则保守弃权</p></div>
+</div>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin:24px 0;">
+<h4 style="margin:0 0 12px;font-size:.95em;">完整示例</h4>
+<p style="font-size:.85em;color:var(--muted);margin:0 0 8px;">文本：「苹果公司发布财报股价大涨，NBA湖人队晋级」</p>
+<div style="font-size:.82em;line-height:2;color:var(--muted);">
+  <span style="color:var(--text);">1. LF 原始输出</span>: 财经 / 体育 / 科技 / 弃权（冲突）<br>
+  <span style="color:var(--text);">2. P 软标签</span>: 财经 0.42 · <strong style="color:var(--accent);">体育 0.47</strong> · 科技 0.09<br>
+  <span style="color:var(--text);">3. LRR 规则1 </span><span style="color:var(--green);">命中</span>: IF LF_sports=体育 ∧ LF_org=科技 → 取体育<br>
+  <span style="color:var(--text);">4. LRR 规则2 </span><span style="color:var(--green);">命中</span>: IF Pr(科技)<0.15 → 丢弃科技<br>
+  <span style="color:var(--text);">5. 最终输出</span>: <strong style="color:var(--accent);">标签=体育, 置信度=0.47</strong>
+</div>
+</div>
+
+<h3>内置 vs 用户可配置</h3>
+<div class="card-grid">
+<div class="card"><h4>内置（系统提供）</h4><p>融合模型 P · LRR 规则引擎 · 规则挖掘器 · 加权训练。不可修改</p></div>
+<div class="card"><h4>LF 集合 <span class="tag tag-green">用户配置</span></h4><p>管理员在项目中增删改查 LF。命名集合可跨项目复用，克隆时独立复制</p></div>
+<div class="card"><h4>LRR 规则集 <span class="tag tag-purple">用户配置</span></h4><p>管理员手写 + 从历史数据自动挖掘。可跨项目复用</p></div>
+<div class="card"><h4>衰减率 ρ <span class="tag tag-orange">项目配置</span></h4><p>训练时弱标签权重随 epoch 衰减，默认 0.5</p></div>
+</div>
+
+<h3>数据落盘</h3>
+<p style="color:var(--muted);">LF 定义和 LRR 规则存主库。原始 LF 输出矩阵和 P 软标签实时消费不落盘。最终弱标签 + 置信度写入标注库 <code>anno_weak_{pid}</code> 表，丢弃/修正统计写入轮次记录。</p>
+</div>
+</section>
+
+<!-- ============ VISUALIZATION ============ -->
+<section id="viz">
+<div class="container">
+<h2>可视化</h2>
+<p class="subtitle">覆盖进度、轮次趋势、专家评估三大仪表盘，领导一眼看懂项目进展</p>
+
+<h3>覆盖可视化</h3>
+<p>高维 embedding 经 t-SNE/UMAP 降到 2D 平面。已标注样本显示覆盖圆（半径 δ<sub>x</sub>），被覆盖区域半透明着色，未覆盖实心点。轮次滑块回溯每轮覆盖演变。</p>
+
+<div class="diagram">
+<svg width="860" height="380" viewBox="0 0 860 380">
+  <rect x="0" y="0" width="860" height="380" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+
+  <!-- Header -->
+  <text x="20" y="28" font-size="14" fill="var(--text)">覆盖可视化</text>
+  <text x="430" y="28" text-anchor="middle" font-size="13" fill="var(--muted)">Round 3 · 覆盖率 58% · 标注中心 24 个</text>
+  <line x1="0" y1="38" x2="860" y2="38" stroke="var(--border)" stroke-width="1"/>
+
+  <!-- Canvas area -->
+  <rect x="20" y="52" width="560" height="270" rx="6" fill="#f6f8fa" stroke="var(--border)" stroke-width="1"/>
+
+  <!-- Coverage regions (semi-transparent) -->
+  <circle cx="100" cy="120" r="65" fill="rgba(9,105,218,0.08)" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="280" cy="95" r="55" fill="rgba(9,105,218,0.08)" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="180" cy="220" r="50" fill="rgba(9,105,218,0.08)" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="400" cy="195" r="60" fill="rgba(9,105,218,0.08)" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="480" cy="120" r="45" fill="rgba(9,105,218,0.08)" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4"/>
+
+  <!-- Labeled centers -->
+  <circle cx="100" cy="120" r="6" fill="var(--accent)"/>
+  <circle cx="280" cy="95" r="6" fill="var(--accent)"/>
+  <circle cx="180" cy="220" r="6" fill="var(--accent)"/>
+  <circle cx="400" cy="195" r="6" fill="var(--accent)"/>
+  <circle cx="480" cy="120" r="6" fill="var(--accent)"/>
+
+  <!-- Uncovered points -->
+  <circle cx="60" cy="75" r="4" fill="var(--red)"/>
+  <circle cx="200" cy="65" r="4" fill="var(--green)"/>
+  <circle cx="350" cy="75" r="4" fill="var(--orange)"/>
+  <circle cx="150" cy="155" r="4" fill="var(--purple)"/>
+  <circle cx="320" cy="250" r="4" fill="var(--red)"/>
+  <circle cx="450" cy="275" r="4" fill="var(--green)"/>
+  <circle cx="520" cy="230" r="4" fill="var(--orange)"/>
+  <circle cx="60" cy="260" r="4" fill="var(--purple)"/>
+  <circle cx="500" cy="75" r="4" fill="var(--red)"/>
+
+  <!-- Covered points inside circles (hollow) -->
+  <circle cx="130" cy="145" r="3.5" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <circle cx="310" cy="115" r="3.5" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <circle cx="210" cy="245" r="3.5" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <circle cx="420" cy="215" r="3.5" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+
+  <!-- Legend -->
+  <rect x="600" y="52" width="240" height="180" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="615" y="82" font-size="13" font-weight="600" fill="var(--text)">图例</text>
+
+  <circle cx="622" cy="108" r="5" fill="var(--red)"/>
+  <text x="638" y="113" font-size="12" fill="var(--muted)">未覆盖 · 类别A</text>
+
+  <circle cx="622" cy="136" r="5" fill="var(--green)"/>
+  <text x="638" y="141" font-size="12" fill="var(--muted)">未覆盖 · 类别B</text>
+
+  <circle cx="622" cy="164" r="5" fill="var(--orange)"/>
+  <text x="638" y="169" font-size="12" fill="var(--muted)">未覆盖 · 类别C</text>
+
+  <circle cx="622" cy="192" r="3.5" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="638" y="196" font-size="12" fill="var(--muted)">已覆盖</text>
+
+  <circle cx="622" cy="218" r="6" fill="var(--accent)"/>
+  <text x="638" y="222" font-size="12" fill="var(--accent)">标注中心 + 覆盖圆</text>
+
+  <!-- Controls -->
+  <rect x="600" y="242" width="240" height="80" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="720" y="270" text-anchor="middle" font-size="13" fill="var(--muted)">◀ Round 3 / 5 ▶</text>
+  <rect x="620" y="282" width="200" height="8" rx="4" fill="var(--border)"/>
+  <rect x="660" y="282" width="60" height="8" rx="4" fill="var(--accent)"/>
+  <text x="720" y="310" text-anchor="middle" font-size="11" fill="var(--muted)">拖拽缩放 · 悬停查看详情</text>
+</svg>
+</div>
+
+<h3>轮次趋势仪表盘</h3>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:24px 0;">
+  <div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:.9em;color:var(--text);">
+    项目: 评论情感分类 · 累计人标 <strong>840</strong> 条 / 机标 <strong>400</strong> 条 · 人机耗时比 <strong style="color:var(--orange);">3.3 : 1</strong>
+  </div>
+  <table style="margin:0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th>Round</th><th>覆盖率</th><th>模型精度</th><th>人耗时</th><th>机耗时</th><th>活跃/分配</th><th>人机一致率</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td><td style="color:var(--red);">12%</td><td>0.45</td><td>8min</td><td>2min</td><td>3/5</td><td>—</td>
+      </tr>
+      <tr>
+        <td>2</td><td style="color:var(--orange);">34%</td><td>0.61</td><td>12min</td><td>3min</td><td>4/5</td><td style="color:var(--accent);">82%</td>
+      </tr>
+      <tr>
+        <td>3</td><td style="color:var(--orange);">58%</td><td>0.74</td><td>10min</td><td>3min</td><td>5/5</td><td style="color:var(--accent);">89%</td>
+      </tr>
+      <tr>
+        <td>4</td><td style="color:var(--green);">81%</td><td>0.85</td><td>6min</td><td>2min</td><td>4/5</td><td style="color:var(--accent);">93%</td>
+      </tr>
+      <tr>
+        <td>5</td><td style="color:var(--green);">92%</td><td>0.91</td><td>4min</td><td>2min</td><td>3/5</td><td style="color:var(--accent);">96%</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>专家质量评估</h3>
+<p>每位专家的标注质量与效率可量化追踪，支持与任意其他专家对比一致性。</p>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:24px 0;">
+  <!-- Header -->
+  <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <span style="font-size:1.2em;font-weight:700;color:var(--text);">👤 张三</span>
+      <span style="margin-left:12px;font-size:.85em;color:var(--muted);">标注专家 · 累计标注 <strong style="color:var(--text);">12,840</strong> 条</span>
+    </div>
+    <span class="tag tag-green">活跃</span>
+  </div>
+
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);">
+    <div style="background:var(--surface);padding:20px 24px;text-align:center;">
+      <div style="font-size:.82em;color:var(--muted);margin-bottom:6px;">人机一致性</div>
+      <div style="font-size:2em;font-weight:700;color:var(--accent);">91.0<span style="font-size:.5em;">%</span></div>
+      <div style="font-size:.78em;color:var(--muted);margin-top:4px;">总计 11,680/12,840</div>
+      <div style="font-size:.82em;color:var(--green);margin-top:4px;">近 30 天: 93.2% ↑</div>
+    </div>
+    <div style="background:var(--surface);padding:20px 24px;text-align:center;">
+      <div style="font-size:.82em;color:var(--muted);margin-bottom:6px;">专家间一致性</div>
+      <div style="font-size:2em;font-weight:700;color:var(--purple);">88.5<span style="font-size:.5em;">%</span></div>
+      <div style="font-size:.78em;color:var(--muted);margin-top:4px;">双人标注 46/52</div>
+      <div style="font-size:.82em;color:var(--green);margin-top:4px;">近 30 天: 90.0% ↑</div>
+    </div>
+    <div style="background:var(--surface);padding:20px 24px;text-align:center;">
+      <div style="font-size:.82em;color:var(--muted);margin-bottom:6px;">标注效率</div>
+      <div style="font-size:2em;font-weight:700;color:var(--orange);">8.3<span style="font-size:.5em;">秒/条</span></div>
+      <div style="font-size:.78em;color:var(--muted);margin-top:4px;">平均 locked→submitted</div>
+      <div style="font-size:.82em;color:var(--green);margin-top:4px;">近 30 天: 7.1 秒/条 ↑</div>
+    </div>
+  </div>
+
+  <!-- Inconsistency records -->
+  <div style="padding:20px 24px;">
+    <h4 style="margin:0 0 16px;font-size:1em;">不一致记录（最近 50 条）</h4>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <span class="tag tag-purple" style="cursor:pointer;">人-机不一致 23</span>
+      <span class="tag tag-orange" style="cursor:pointer;">人-人不一致 8</span>
+      <span class="tag" style="background:var(--surface);color:var(--muted);border:1px solid var(--border);">全部 31</span>
+    </div>
+
+    <!-- Records -->
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:8px 14px;background:#f6f8fa;border-bottom:1px solid var(--border);font-size:.8em;color:var(--muted);">
+        <span>#</span><span>内容摘要</span><span>张三标</span><span>对方标</span><span>裁定结果</span>
+      </div>
+
+      <!-- Row 1: human-machine -->
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.85em;">
+        <span class="tag tag-purple" style="font-size:.75em;">人-机</span>
+        <span style="color:var(--text);">华为发布AI芯片，算力提升300%，产业链...</span>
+        <span style="color:var(--red);">负面</span>
+        <span style="color:var(--muted);">机器: <span style="color:var(--green);">正面</span></span>
+        <span style="color:var(--muted);font-size:.8em;">裁定: <span style="color:var(--green);">机器正确</span></span>
+      </div>
+
+      <!-- Row 2: human-human -->
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.85em;">
+        <span class="tag tag-orange" style="font-size:.75em;">人-人</span>
+        <span style="color:var(--text);">央行降准释放流动性，A股全线上涨...</span>
+        <span style="color:var(--green);">财经</span>
+        <span style="color:var(--muted);">李四: <span style="color:var(--purple);">宏观</span></span>
+        <span style="color:var(--muted);font-size:.8em;">裁定: <span style="color:var(--green);">张三正确</span></span>
+      </div>
+
+      <!-- Row 3: human-machine -->
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.85em;">
+        <span class="tag tag-purple" style="font-size:.75em;">人-机</span>
+        <span style="color:var(--text);">NBA总决赛G7，湖人逆转夺冠...</span>
+        <span style="color:var(--green);">体育</span>
+        <span style="color:var(--muted);">机器: <span style="color:var(--green);">体育</span></span>
+        <span style="color:var(--muted);font-size:.8em;color:var(--green);">一致 ✓</span>
+      </div>
+
+      <!-- Row 4: human-human -->
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.85em;">
+        <span class="tag tag-orange" style="font-size:.75em;">人-人</span>
+        <span style="color:var(--text);">特斯拉召回部分车型，股价下跌...</span>
+        <span style="color:var(--red);">负面</span>
+        <span style="color:var(--muted);">王五: <span style="color:var(--orange);">中性</span></span>
+        <span style="color:var(--muted);font-size:.8em;">裁定: <span style="color:var(--red);">对方正确</span></span>
+      </div>
+
+      <!-- Row 5: human-machine -->
+      <div style="display:grid;grid-template-columns:50px 1fr 100px 100px 110px;align-items:center;padding:10px 14px;font-size:.85em;">
+        <span class="tag tag-purple" style="font-size:.75em;">人-机</span>
+        <span style="color:var(--text);">苹果发布会新MacBook，性能翻倍...</span>
+        <span style="color:var(--purple);">科技</span>
+        <span style="color:var(--muted);">机器: <span style="color:var(--purple);">科技</span></span>
+        <span style="color:var(--muted);font-size:.8em;color:var(--green);">一致 ✓</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<footer>
+<div class="container">
+<p>SALT 标注平台 · 设计文档 · 基于论文 <a href="salt.md">SALT: Selective Annotation for Labeling and Training</a></p>
+<p style="margin-top:8px;">私有部署 · 多角色协作 · 理论精度保证 · <a href="https://github.com">GitHub</a></p>
+</div>
+</footer>
+
+<script>
+// Smooth scroll for nav links
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+});
+
+// Highlight active nav on scroll
+const sections = document.querySelectorAll('section');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.getAttribute('id');
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+
+</body>
+</html>
