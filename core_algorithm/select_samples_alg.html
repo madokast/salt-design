@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SALTExactSoft select_samples 流程图</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-soft: #eff6ff;
+      --code: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+      line-height: 1.65;
+    }
+
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .top-nav a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+
+    .top-nav a:hover {
+      background: var(--primary-soft);
+    }
+
+    .top-nav .nav-strong {
+      font-weight: 700;
+    }
+
+    .top-nav .nav-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+
+    section {
+      scroll-margin-top: 78px;
+      margin-bottom: 24px;
+      padding: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+    }
+
+    h1,
+    h2 {
+      margin: 0 0 14px;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: 28px;
+    }
+
+    h2 {
+      font-size: 22px;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .legend-item {
+      padding: 12px 14px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+    }
+
+    code {
+      color: var(--code);
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .diagram {
+      margin-top: 18px;
+      padding: 16px;
+      background: #fbfdff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow-x: auto;
+    }
+
+    .pseudo {
+      margin-top: 16px;
+      padding: 16px;
+      background: #0f172a;
+      color: #e5e7eb;
+      border-radius: 14px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.7;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .pseudo .comment {
+      color: #93c5fd;
+    }
+
+    .steps {
+      margin-top: 14px;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .steps p {
+      margin: 8px 0;
+    }
+
+    .steps .note {
+      color: var(--muted);
+    }
+
+    .placeholder {
+      color: var(--muted);
+      background: #f9fafb;
+      border-style: dashed;
+    }
+  </style>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: { fontCache: "global" }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      securityLevel: "loose",
+      flowchart: {
+        useMaxWidth: false,
+        htmlLabels: true,
+        curve: "basis"
+      },
+      themeVariables: {
+        primaryColor: "#eff6ff",
+        primaryTextColor: "#1f2937",
+        primaryBorderColor: "#2563eb",
+        lineColor: "#64748b",
+        secondaryColor: "#f8fafc",
+        tertiaryColor: "#ffffff",
+        fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans SC, sans-serif"
+      }
+    });
+  </script>
+</head>
+<body>
+  <nav class="top-nav" aria-label="页面导航">
+    <a class="nav-strong" href="#overview">总流程</a>
+    <a class="nav-strong" href="#module-entry">首轮流程</a>
+    <span class="nav-label">后续流程</span>
+    <a href="#module-labeled">已标注半径与覆盖</a>
+    <a href="#module-static-radius">计算候选 score</a>
+    <a href="#module-repeat">计算训练样本权重</a>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <h1>select 总流程</h1>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    Start([开始一轮主动学习采样<br/>输出一批未标记样本])
+    State["读取当前轮状态<br/>数据集 D、当前模型 M、人工标注情况"]
+    Round{"当前是否为首轮 round = 0?"}
+
+    First["首轮采样<br/>固定半径 + 贪心选取 + 计算样本权重"]
+
+    Later["后续轮次"]
+    M2["计算已标注点半径、当前覆盖率"]
+    M3["所有未标注进入候选池<br/>区分覆盖情况（是否被已标注点覆盖）"]
+    M4["计算所有候选 score"]
+    M5["贪心选择<br/>逐步选择最高分候选、更新剩余候选的 score"]
+    M6["计算训练样本权重"]
+
+    Return["输出本轮选择集合"]
+    End([结束])
+
+    Start --> State --> Round
+    Round -- 是 --> First --> Return
+    Round -- 否 --> Later --> M2 --> M3 --> M4 --> M5 --> M6 --> Return
+    Return --> End
+        </pre>
+      </div>
+    </section>
+
+    <section id="module-entry" class="placeholder">
+      <h2>首轮流程</h2>
+      <p class="muted">
+        首轮标注时，所有样本半径都统一为用户预设的最大半径 <code>r_max</code>。
+        先根据已有标注数据构造候选集，再在候选集中按覆盖点数做贪心选择。
+      </p>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>用户指定参数</strong><br />
+          查询预算 <code>B</code>、理论最大半径 <code>r_max</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前训练固定量</strong><br />
+          训练集特征空间距离 <code>d(x,u)</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前轮次变量</strong><br />
+          已标注集合 <code>L</code>、未标注池 <code>U</code>、本轮选择集合 <code>S</code>。
+        </div>
+      </div>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A([首轮开始])
+    B["统一半径<br/>所有样本都使用 r_max"]
+    C{"是否已有标注数据?"}
+    D["用已标注数据计算覆盖范围<br/>半径统一为 r_max"]
+    E["构造候选集<br/>总样本去除已覆盖点"]
+    F["构造候选集<br/>所有样本都是候选集"]
+    G["贪心选点开始<br/>选择集合 S 置空"]
+    H{"|S| 是否达到 budget<br/>或候选集为空?"}
+    I["计算每个候选点覆盖数<br/>半径统一为 r_max"]
+    J["按覆盖点数排序<br/>覆盖点数相同则选择序号更小的点"]
+    K["选出当前最优点 x*<br/>加入 S"]
+    L["更新候选池<br/>删除 x*<br/>同时删除被 x* 覆盖的点"]
+    M["贪心阶段完成<br/>得到首轮选择集合 S"]
+    N["计算 S 中每个点的覆盖归属<br/>所有选择点半径仍为 r_max"]
+    O["处理多重覆盖<br/>若一个样本被多个选择点覆盖<br/>归属给距离比例最小的选择点"]
+    P["计算训练权重<br/>weight(x)=ceil(sqrt(归属到 x 的样本数))"]
+    Q["输出首轮选择集合 S<br/>以及对应训练权重"]
+    R([首轮结束])
+
+    A --> B --> C
+    C -- 有 --> D --> E --> G
+    C -- 没有 --> F --> G
+    G --> H
+    H -- 否 --> I --> J --> K --> L --> H
+    H -- 是 --> M --> N --> O --> P --> Q --> R
+        </pre>
+      </div>
+
+    </section>
+
+    <section id="module-labeled" class="placeholder">
+      <h2>已标注半径与覆盖</h2>
+      <p class="muted">
+        后续轮次开始时，先逐个计算已标注点的半径。若当前覆盖率过低，可以选择性上调半径，
+        但任何半径都不能超过用户预设的最大半径 <code>r_max</code>。最终用调整后的半径计算当前覆盖率。
+      </p>
+
+      <div class="legend">
+        <div class="legend-item">
+          <strong>用户指定参数</strong><br />
+          半径公式参数 <code>epsilon</code>、<code>h_min</code>、<code>diff_min</code>，
+          最大半径上限 <code>r_max</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前训练固定量</strong><br />
+          当前轮训练后的模型 <code>M</code>，训练集特征空间距离 <code>d(x,u)</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前轮次变量</strong><br />
+          已标注集合 <code>L</code>，每个已标注点半径 <code>r_l</code>，覆盖比例。
+        </div>
+      </div>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A([后续轮次开始])
+    B["逐个已标注点计算原始半径"]
+    C["用原始半径计算一次当前覆盖率"]
+    D{"覆盖率是否过低<br/>且启用半径上调?"}
+    E["按半径上调规则放大已标注点半径<br/>每个半径都不超过 r_max"]
+    F["得到最终半径"]
+    G["根据最终半径计算覆盖情况"]
+    H["计算覆盖比例"]
+    I([输出最终半径和覆盖比例])
+
+    A --> B --> C --> D
+    D -- 是 --> E --> F
+    D -- 否 --> F
+    F --> G --> H --> I
+        </pre>
+      </div>
+
+      <h3>已标注点半径计算逻辑</h3>
+      <div class="steps">
+        <p><strong>输入：</strong>当前已标注点集合 \(L\)、当前轮模型 \(M\)、全训练集特征向量 \(X\)、已标注点真实标签 \(y_l\)，以及参数 \(\epsilon\)、\(h_{min}\)、\(diff_{min}\)、\(r_{max}\)。</p>
+        <p><strong>对每个已标注点 \(l \in L\)：</strong>取出样本特征 \(x_l\)，并用当前模型得到 \(logits_l=M(x_l)\)。</p>
+        <p><strong>计算预测概率：</strong>对 logits 做 softmax，得到模型对该点的预测分布 \(p_l=softmax(logits_l)\)。</p>
+        <p><strong>构造标签向量：</strong>因为 \(l\) 是已标注点，所以将真实标签 \(y_l\) 转成 one-hot 向量 \(\eta_l\)。若使用软标签，则 \(\eta_l\) 使用对应软标签向量。</p>
+        <p><strong>计算预测差异：</strong>计算预测分布和标签向量的 L2 距离，并施加下界：</p>
+        <p>\[
+          diff_l=\max(\|\eta_l-p_l\|_2,\ diff_{min})
+        \]</p>
+        <p><strong>估计局部 Lipschitz 放大系数：</strong>在特征距离空间中，为 \(x_l\) 找到 \(K\) 个非自身近邻。对每个近邻 \(j\)，计算 logits 变化量与特征距离的比值：</p>
+        <p>\[
+          ratio_{lj}=\frac{\|logits_l-logits_j\|_2}{\max(d(x_l,x_j),\ distance\_eps)}
+        \]</p>
+        <p>取这些比值的 \(q\) 分位数作为局部放大系数，并施加最小值保护：</p>
+        <p>\[
+          L_l=\max(quantile(\{ratio_{lj}\}, q),\ L_{min})
+        \]</p>
+        <p><strong>计算弯曲程度：</strong>根据预测概率构造 Hessian 形式矩阵，并取谱范数；再用 \(h_{min}\) 做下界截断：</p>
+        <p>\[
+          H_l=diag(p_l)-p_l p_l^\top,\quad h_l=\max(\|H_l\|_2,\ h_{min})
+        \]</p>
+        <p><strong>计算半径：</strong>使用 \(diff_l\)、\(h_l\)、\(L_l\) 得到原始半径，并截断到用户预设最大半径以内：</p>
+        <p>\[
+          r_l=\min\left(
+            \frac{-diff_l+\sqrt{diff_l^2+2h_l\epsilon}}{h_lL_l},
+            r_{max}
+          \right)
+        \]</p>
+      </div>
+
+      <h3>可选半径上调逻辑</h3>
+      <div class="steps">
+        <p><strong>输入：</strong>上一步得到的已标注点半径 \(r_l\)、覆盖率阈值 \(T\)、百分位参数 \(k\)、最大半径 \(r_{max}\)。</p>
+        <p><strong>先用原始半径计算覆盖比例。</strong>如果没有启用半径上调，或者当前覆盖比例已经不低于阈值 \(T\)，则直接使用原始半径。</p>
+        <p><strong>若覆盖比例低于阈值：</strong>将所有已标注点半径从大到小排序，并取第 \(k\%\) 大的半径作为基准 \(q_k\)。</p>
+        <p><strong>计算统一放大比例：</strong>让基准半径被拉到最大半径附近：</p>
+        <p>\[
+          scale=\max\left(1,\frac{r_{max}}{q_k}\right)
+        \]</p>
+        <p><strong>上调所有已标注点半径：</strong>每个半径乘以同一个放大比例，但不能超过 \(r_{max}\)：</p>
+        <p>\[
+          r_l \leftarrow \min(r_l \cdot scale,\ r_{max})
+        \]</p>
+        <p><strong>最终覆盖比例：</strong>用上调后的最终半径判断每个样本是否落在任一已标注点半径内，并计算已覆盖样本数占全训练集样本数的比例。</p>
+      </div>
+    </section>
+
+    <section id="module-static-radius" class="placeholder">
+      <h2>计算候选 score</h2>
+      <p class="muted">
+        后续轮次中，所有未标注样本都会进入候选池。已被当前标注集覆盖的候选仍然可以被选择，
+        但只保留模型不确定性收益；未覆盖候选同时拥有不确定性收益和覆盖收益。
+      </p>
+
+      <div class="legend">
+        <div class="legend-item">
+          <strong>用户指定参数</strong><br />
+          不确定性权重 <code>alpha</code>，半径参数 <code>epsilon</code>、<code>h_min</code>、
+          <code>diff_min</code>，最大半径 <code>r_max</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前训练固定量</strong><br />
+          当前轮模型 <code>M</code>，训练集特征空间距离 <code>d(x,u)</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前轮次变量</strong><br />
+          未标注池 <code>U</code>，当前覆盖情况，当前覆盖比例。
+        </div>
+      </div>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A([开始计算候选 score])
+    B["所有未标注样本进入候选池"]
+    C["根据当前覆盖标记<br/>区分已覆盖候选和未覆盖候选"]
+    D["对所有候选计算模型预测概率 p"]
+    E["计算所有候选的不确定性 uncertainty<br/>由最大概率和第二大概率的差得到"]
+    F["已覆盖候选<br/>候选半径 candidate_radius 为零<br/>覆盖数 D 为一"]
+    G["未覆盖候选<br/>估计候选半径 candidate_radius<br/>并计算它能覆盖多少未覆盖候选，即覆盖数 D"]
+    H["确定不确定性权重 alpha<br/>使用用户给定值或根据分布尺度估计"]
+    I["计算最终 score<br/>合并不确定性收益 uncertainty score 和覆盖收益 coverage score"]
+    J([输出每个候选的 score、覆盖数 D 和候选半径 candidate_radius])
+
+    A --> B --> C --> D --> E
+    E --> F --> H
+    E --> G --> H
+    H --> I --> J
+        </pre>
+      </div>
+
+      <h3>候选 score 计算逻辑</h3>
+      <div class="steps">
+        <p><strong>输入：</strong>未标注池 \(U\)、当前模型 \(M\)、当前覆盖情况、覆盖比例 \(coverage\_ratio\)、不确定性权重 \(\alpha\)、半径参数。</p>
+        <p><strong>候选池：</strong>所有未标注样本都进入候选池。根据当前覆盖情况，将候选分为“已覆盖候选”和“未覆盖候选”。</p>
+        <p><strong>计算模型不确定性：</strong>对每个候选 \(x\)，计算 \(logits_x=M(x)\)，并得到预测概率 \(p_x=softmax(logits_x)\)。</p>
+        <p><strong>计算 margin：</strong>取预测概率中最大值和第二大值的差：</p>
+        <p>\[
+          margin(x)=top1(p_x)-top2(p_x)
+        \]</p>
+        <p><strong>计算不确定性：</strong>margin 越小，模型越不确定；因此使用：</p>
+        <p>\[
+          uncertainty(x)=-\log(\max(margin(x), small\_number))
+        \]</p>
+        <p><strong>已覆盖候选：</strong>候选半径设为 0，覆盖数设为 1。它们只保留不确定性收益，不扩张覆盖。</p>
+        <p><strong>未覆盖候选：</strong>先估计候选半径，再统计它在未覆盖候选集合中能覆盖多少个样本，得到覆盖数 \(D(x)\)。若覆盖数小于 1，则按 1 处理。</p>
+        <p><strong>确定不确定性权重：</strong>如果用户给定 \(\alpha\)，则 \(\alpha_t=\alpha\)。否则用 \(\log(D)\) 和 \(uncertainty\) 的四分位距比例估计：</p>
+        <p>\[
+          \alpha_t=\frac{IQR(\log(D))}{IQR(uncertainty)}
+        \]</p>
+        <p><strong>计算最终分数：</strong>每个候选的 score 由不确定性收益和覆盖收益相加得到：</p>
+        <p>\[
+          score(x)=\alpha_t \cdot coverage\_ratio \cdot uncertainty(x)+\log(D(x))
+        \]</p>
+      </div>
+
+      <h3>未覆盖候选半径估计逻辑</h3>
+      <div class="steps">
+        <p><strong>对每个未覆盖候选 \(x\)：</strong>先用当前模型计算 \(logits_x\) 和预测概率 \(p_x\)。</p>
+        <p><strong>没有真实标签：</strong>未标注候选没有标签，因此不计算真实标签 diff，直接使用 \(diff_{min}\) 作为有效差异项。</p>
+        <p><strong>估计局部放大系数：</strong>在特征空间中找到 \(x\) 的 \(K\) 个非自身近邻，计算每个近邻方向上的 logits 变化量与特征距离的比值，并取 \(q\) 分位数得到 \(L_x\)。</p>
+        <p><strong>计算弯曲程度：</strong>构造 \(H_x=diag(p_x)-p_xp_x^\top\)，并取谱范数后用 \(h_{min}\) 截断：</p>
+        <p>\[
+          h_x=\max(\|H_x\|_2,\ h_{min})
+        \]</p>
+        <p><strong>计算候选半径：</strong></p>
+        <p>\[
+          r_x=\min\left(
+            \frac{2\epsilon}{L_x\left(diff_{min}+\sqrt{diff_{min}^2+2h_x\epsilon}\right)},
+            r_{max}
+          \right)
+        \]</p>
+      </div>
+    </section>
+
+    <section id="module-repeat" class="placeholder">
+      <h2>计算训练样本权重</h2>
+      <p class="muted">
+        每轮采样结束后，需要为下一轮训练计算样本重复权重。权重不是贪心选择时的覆盖数，
+        而是用“当前已标注点 + 本轮新选择点”重新在全训练集上做覆盖归属后得到。
+      </p>
+
+      <div class="legend">
+        <div class="legend-item">
+          <strong>用户指定参数</strong><br />
+          最大半径 <code>r_max</code>，以及本轮新选点各自的生效半径。
+        </div>
+        <div class="legend-item">
+          <strong>当前训练固定量</strong><br />
+          训练集特征空间距离 <code>d(x,u)</code>。
+        </div>
+        <div class="legend-item">
+          <strong>当前轮次变量</strong><br />
+          当前已标注集合 <code>L</code>，本轮选择集合 <code>S</code>，
+          下一轮标注集合 <code>L_next</code>。
+        </div>
+      </div>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A([开始计算训练样本权重])
+    B["合并标注集合<br/>下一轮标注集合 = 当前已标注集合 + 本轮选择集合"]
+    C["确定每个标注点的生效半径<br/>已有标注点使用本轮最终半径<br/>新选点使用选择时记录的半径"]
+    D["每个标注点初始化基础权重<br/>raw_weight = 1"]
+    E{"是否还有未处理的非标注样本?"}
+    F["取下一个非标注样本"]
+    G{"该样本是否被至少一个标注点覆盖?"}
+    H["忽略该样本<br/>不归属给任何标注点"]
+    I["若只被一个标注点覆盖<br/>归属给该标注点"]
+    J["若被多个标注点覆盖<br/>归属给距离比例最小的标注点"]
+    K["被归属的标注点<br/>raw_weight 加一"]
+    L["对 raw_weight 开方并向上取整<br/>得到下一轮训练权重"]
+    M([输出每个标注样本的训练权重])
+
+    A --> B --> C --> D --> E
+    E -- 有 --> F --> G
+    G -- 否 --> H --> E
+    G -- 是，单一覆盖 --> I --> K --> E
+    G -- 是，多重覆盖 --> J --> K --> E
+    E -- 没有 --> L --> M
+        </pre>
+      </div>
+
+      <h3>训练样本权重计算逻辑</h3>
+      <div class="steps">
+        <p><strong>构造下一轮标注集合：</strong>将当前已标注点和本轮新选择点合并，得到 \(L_{next}=L\cup S\)。</p>
+        <p><strong>确定生效半径：</strong>当前已标注点使用本轮计算出的最终半径；本轮新选点使用选择时记录的半径。如果某个新选点本来已经被覆盖，它的生效半径为 0。</p>
+        <p><strong>初始化基础权重：</strong>每个 \(z\in L_{next}\) 的原始权重从 1 开始，表示该点自身至少出现一次。</p>
+        <p>\[
+          raw\_weight(z)=1
+        \]</p>
+        <p><strong>计算覆盖归属：</strong>对每个不属于 \(L_{next}\) 的训练样本 \(u\)，检查哪些标注点 \(z\) 能覆盖它，即满足 \(d(z,u)\le r_z\)。</p>
+        <p><strong>解决多重覆盖：</strong>如果 \(u\) 被多个标注点覆盖，则归属给距离比例最小的标注点：</p>
+        <p>\[
+          owner(u)=\arg\min_{z\in L_{next},\ d(z,u)\le r_z}\frac{d(z,u)}{r_z}
+        \]</p>
+        <p><strong>累加归属数：</strong>每有一个非标注样本归属给 \(z\)，就令 \(raw\_weight(z)\) 加一。</p>
+        <p>\[
+          raw\_weight(z)=1+\#\{u: owner(u)=z\}
+        \]</p>
+        <p><strong>得到训练权重：</strong>为了避免覆盖很多样本的点权重过大，对原始权重开方并向上取整：</p>
+        <p>\[
+          train\_weight(z)=\left\lceil\sqrt{raw\_weight(z)}\right\rceil
+        \]</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
