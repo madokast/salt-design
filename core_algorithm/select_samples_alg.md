@@ -42,7 +42,7 @@ ratios_i = []
 for j in neighbors_i:
     ratio_ij = ||logits(i) - logits(j)||_2 / distance(i, j)
     ratios_i.append(ratio_ij)
-L_i = quantile(ratios_i, local_lipschitz_quantile)
+L_i = quantile(ratios_i, local_lipschitz_quantile) # 取第 xx% 分位数
 L_i = max(L_i, local_lipschitz_min_value)
 
 默认参数来自构造函数：
